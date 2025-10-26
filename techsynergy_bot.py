@@ -2,11 +2,11 @@ import os
 import asyncio
 from telegram import Update, ReplyKeyboardMarkup
 from telegram.ext import (
-    Updater,
+    Application,
     CommandHandler,
     MessageHandler,
-    Filters,
-    CallbackContext,
+    filters,
+    ContextTypes,
 )
 import openai
 from dotenv import load_dotenv
@@ -36,7 +36,7 @@ main_menu = ReplyKeyboardMarkup(
 )
 
 # === Command Handlers ===
-def start(update: Update, context: CallbackContext):
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_first_name = update.effective_user.first_name
     welcome_message = (
         f"👋 Hello {user_first_name}!\n\n"
@@ -45,14 +45,14 @@ def start(update: Update, context: CallbackContext):
         "a leading provider of IT solutions, digital innovation, and technology consultancy.\n\n"
         "You can use the menu below or type your question to begin."
     )
-    update.message.reply_text(
+    await update.message.reply_text(
         welcome_message,
         parse_mode="Markdown",
         reply_markup=main_menu
     )
 
-def about(update: Update, context: CallbackContext):
-    update.message.reply_text(
+async def about(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text(
         "💼 *About TechSynergy Solutions Limited*\n\n"
         "TechSynergy Solutions is a full-service IT and innovation company providing professional services in:\n"
         "🌐 Web & Software Development\n"
@@ -65,8 +65,8 @@ def about(update: Update, context: CallbackContext):
         parse_mode="Markdown"
     )
 
-def services(update: Update, context: CallbackContext):
-    update.message.reply_text(
+async def services(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text(
         "🧠 *Our Core Services Include:*\n\n"
         "1️⃣ Web & Software Development\n"
         "2️⃣ Mobile App Development\n"
@@ -79,8 +79,8 @@ def services(update: Update, context: CallbackContext):
         parse_mode="Markdown"
     )
 
-def contact(update: Update, context: CallbackContext):
-    update.message.reply_text(
+async def contact(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text(
         "📞 *Contact TechSynergy Solutions Limited*\n\n"
         "🌍 Website: https://techsynergyhq.com\n"
         "📧 Email: info@techsynergyhq.com\n"
@@ -89,8 +89,8 @@ def contact(update: Update, context: CallbackContext):
         parse_mode="Markdown"
     )
 
-def help_command(update: Update, context: CallbackContext):
-    update.message.reply_text(
+async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text(
         "🆘 *Help Menu*\n\n"
         "Use the menu below or type:\n"
         "/about - Learn about TechSynergy\n"
@@ -102,22 +102,22 @@ def help_command(update: Update, context: CallbackContext):
     )
 
 # === AI Chat Handler ===
-def handle_message(update: Update, context: CallbackContext):
+async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_message = update.message.text
 
     # Map button text to commands
     if user_message == "💼 About Us":
-        return about(update, context)
+        return await about(update, context)
     elif user_message == "🧠 Services":
-        return services(update, context)
+        return await services(update, context)
     elif user_message == "📞 Contact":
-        return contact(update, context)
+        return await contact(update, context)
     elif user_message == "❓ Help":
-        return help_command(update, context)
+        return await help_command(update, context)
 
     try:
         # Show typing action
-        context.bot.send_chat_action(chat_id=update.effective_chat.id, action="typing")
+        await context.bot.send_chat_action(chat_id=update.effective_chat.id, action="typing")
         
         # Use OpenAI client
         response = openai.ChatCompletion.create(
@@ -136,14 +136,14 @@ def handle_message(update: Update, context: CallbackContext):
         )
 
         reply = response.choices[0].message.content.strip()
-        update.message.reply_text(reply, parse_mode="Markdown")
+        await update.message.reply_text(reply, parse_mode="Markdown")
 
     except Exception as e:
         print(f"OpenAI Error: {e}")
-        update.message.reply_text("⚠️ Sorry, I'm having trouble connecting to our AI service. Please try again in a moment.")
+        await update.message.reply_text("⚠️ Sorry, I'm having trouble connecting to our AI service. Please try again in a moment.")
 
 # === Error Handler ===
-def error_handler(update: Update, context: CallbackContext):
+async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Log errors caused by Updates."""
     print(f"Update {update} caused error {context.error}")
 
@@ -151,27 +151,23 @@ def error_handler(update: Update, context: CallbackContext):
 def main():
     print("🤖 TechSynergy AI Bot is starting...")
     
-    # Create Updater instance (for PTB v13)
-    updater = Updater(BOT_TOKEN, use_context=True)
-    
-    # Get dispatcher to register handlers
-    dp = updater.dispatcher
+    # Create Application instance (for PTB v20+)
+    application = Application.builder().token(BOT_TOKEN).build()
 
     # Add handlers
-    dp.add_handler(CommandHandler("start", start))
-    dp.add_handler(CommandHandler("about", about))
-    dp.add_handler(CommandHandler("services", services))
-    dp.add_handler(CommandHandler("contact", contact))
-    dp.add_handler(CommandHandler("help", help_command))
-    dp.add_handler(MessageHandler(Filters.text & ~Filters.command, handle_message))
+    application.add_handler(CommandHandler("start", start))
+    application.add_handler(CommandHandler("about", about))
+    application.add_handler(CommandHandler("services", services))
+    application.add_handler(CommandHandler("contact", contact))
+    application.add_handler(CommandHandler("help", help_command))
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     
     # Add error handler
-    dp.add_error_handler(error_handler)
+    application.add_error_handler(error_handler)
 
     # Start polling
     print("✅ TechSynergy AI Bot is now running...")
-    updater.start_polling()
-    updater.idle()
+    application.run_polling(allowed_updates=Update.ALL_TYPES)
 
 if __name__ == "__main__":
     main()
