@@ -8,7 +8,7 @@ from telegram.ext import (
     ContextTypes,
     filters,
 )
-from openai import AsyncOpenAI
+from openai import OpenAI
 from dotenv import load_dotenv
 
 # Load environment variables
@@ -23,8 +23,8 @@ if not BOT_TOKEN:
 if not OPENAI_API_KEY:
     raise ValueError("❌ OPENAI_API_KEY environment variable is not set!")
 
-# Initialize OpenAI client (using AsyncOpenAI for better performance)
-client = AsyncOpenAI(api_key=OPENAI_API_KEY)
+# Initialize OpenAI client (using sync client for stability)
+client = OpenAI(api_key=OPENAI_API_KEY)
 
 # === Custom Keyboard Menu ===
 main_menu = ReplyKeyboardMarkup(
@@ -119,19 +119,23 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # Show typing action
         await context.bot.send_chat_action(chat_id=update.effective_chat.id, action="typing")
         
-        response = await client.chat.completions.create(
-            model="gpt-3.5-turbo",
-            messages=[
-                {
-                    "role": "system", 
-                    "content": """You are TechSynergy AI Assistant, a professional chatbot representing TechSynergy Solutions Limited. 
-                    The company provides IT services including web development, mobile apps, cloud solutions, cybersecurity, AI automation, and virtual events.
-                    Be helpful, professional, and concise. Always represent the company well."""
-                },
-                {"role": "user", "content": user_message},
-            ],
-            max_tokens=500,
-            temperature=0.7
+        # Use OpenAI client (sync call wrapped in asyncio)
+        response = await asyncio.get_event_loop().run_in_executor(
+            None,
+            lambda: client.chat.completions.create(
+                model="gpt-3.5-turbo",
+                messages=[
+                    {
+                        "role": "system", 
+                        "content": """You are TechSynergy AI Assistant, a professional chatbot representing TechSynergy Solutions Limited. 
+                        The company provides IT services including web development, mobile apps, cloud solutions, cybersecurity, AI automation, and virtual events.
+                        Be helpful, professional, and concise. Always represent the company well."""
+                    },
+                    {"role": "user", "content": user_message},
+                ],
+                max_tokens=500,
+                temperature=0.7
+            )
         )
 
         reply = response.choices[0].message.content.strip()
