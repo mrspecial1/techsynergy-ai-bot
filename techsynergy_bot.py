@@ -8,7 +8,7 @@ from telegram.ext import (
     ContextTypes,
     filters,
 )
-from openai import OpenAI
+import openai
 from dotenv import load_dotenv
 
 # Load environment variables
@@ -23,8 +23,8 @@ if not BOT_TOKEN:
 if not OPENAI_API_KEY:
     raise ValueError("❌ OPENAI_API_KEY environment variable is not set!")
 
-# Initialize OpenAI client (using sync client for stability)
-client = OpenAI(api_key=OPENAI_API_KEY)
+# Configure OpenAI (for older version)
+openai.api_key = OPENAI_API_KEY
 
 # === Custom Keyboard Menu ===
 main_menu = ReplyKeyboardMarkup(
@@ -89,19 +89,7 @@ async def contact(update: Update, context: ContextTypes.DEFAULT_TYPE):
         parse_mode="Markdown"
     )
 
-async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text(
-        "🆘 *Help Menu*\n\n"
-        "Use the menu below or type:\n"
-        "/about - Learn about TechSynergy\n"
-        "/services - View services\n"
-        "/contact - Get contact details\n"
-        "/help - Show help again",
-        parse_mode="Markdown",
-        reply_markup=main_menu
-    )
-
-# === AI Chat Handler ===
+# === AI Chat Handler for older OpenAI ===
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_message = update.message.text
 
@@ -119,17 +107,15 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # Show typing action
         await context.bot.send_chat_action(chat_id=update.effective_chat.id, action="typing")
         
-        # Use OpenAI client (sync call wrapped in asyncio)
+        # Use OpenAI client (older version syntax)
         response = await asyncio.get_event_loop().run_in_executor(
             None,
-            lambda: client.chat.completions.create(
+            lambda: openai.ChatCompletion.create(
                 model="gpt-3.5-turbo",
                 messages=[
                     {
                         "role": "system", 
-                        "content": """You are TechSynergy AI Assistant, a professional chatbot representing TechSynergy Solutions Limited. 
-                        The company provides IT services including web development, mobile apps, cloud solutions, cybersecurity, AI automation, and virtual events.
-                        Be helpful, professional, and concise. Always represent the company well."""
+                        "content": """You are TechSynergy AI Assistant, a professional chatbot representing TechSynergy Solutions Limited."""
                     },
                     {"role": "user", "content": user_message},
                 ],
