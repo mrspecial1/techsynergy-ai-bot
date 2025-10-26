@@ -2,7 +2,7 @@ import os
 import asyncio
 from telegram import Update, ReplyKeyboardMarkup
 from telegram.ext import (
-    ApplicationBuilder,
+    Application,
     CommandHandler,
     MessageHandler,
     ContextTypes,
@@ -16,6 +16,12 @@ load_dotenv()
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+
+# Validate environment variables
+if not BOT_TOKEN:
+    raise ValueError("❌ BOT_TOKEN environment variable is not set!")
+if not OPENAI_API_KEY:
+    raise ValueError("❌ OPENAI_API_KEY environment variable is not set!")
 
 # Initialize OpenAI client
 client = OpenAI(api_key=OPENAI_API_KEY)
@@ -35,7 +41,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     welcome_message = (
         f"👋 Hello {user_first_name}!\n\n"
         "Welcome to *TechSynergy AI Assistant* 🤖\n\n"
-        "I’m your smart business assistant from *TechSynergy Solutions Limited* — "
+        "I'm your smart business assistant from *TechSynergy Solutions Limited* — "
         "a leading provider of IT solutions, digital innovation, and technology consultancy.\n\n"
         "You can use the menu below or type your question to begin."
     )
@@ -113,31 +119,46 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         response = client.chat.completions.create(
             model="gpt-3.5-turbo",
             messages=[
-                {"role": "system", "content": "You are TechSynergy AI Assistant, a professional, polite chatbot that represents TechSynergy Solutions Limited."},
+                {"role": "system", "content": "You are TechSynergy AI Assistant, a professional, polite chatbot that represents TechSynergy Solutions Limited - a full-service IT and innovation company providing professional services in web development, mobile apps, cloud solutions, cybersecurity, AI automation, and virtual events. Be helpful, concise, and professional. Always represent the company well."},
                 {"role": "user", "content": user_message},
             ],
+            max_tokens=500,
+            temperature=0.7
         )
 
         reply = response.choices[0].message.content.strip()
-        await update.message.reply_text(reply)
+        await update.message.reply_text(reply, parse_mode="Markdown")
 
     except Exception as e:
-        print(f"Error: {e}")
-        await update.message.reply_text("⚠️ Sorry, something went wrong. Please try again later.")
+        print(f"OpenAI Error: {e}")
+        await update.message.reply_text("⚠️ Sorry, I'm having trouble connecting to our AI service. Please try again in a moment.")
+
+# === Error Handler ===
+async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Log errors caused by Updates."""
+    print(f"Update {update} caused error {context.error}")
 
 # === Main Function ===
-async def main():
-    print("🤖 TechSynergy AI Bot is running...")
-    app = ApplicationBuilder().token(BOT_TOKEN).build()
+def main():
+    print("🤖 TechSynergy AI Bot is starting...")
+    
+    # Create Application instance (FIXED: Using Application instead of ApplicationBuilder)
+    application = Application.builder().token(BOT_TOKEN).build()
 
-    app.add_handler(CommandHandler("start", start))
-    app.add_handler(CommandHandler("about", about))
-    app.add_handler(CommandHandler("services", services))
-    app.add_handler(CommandHandler("contact", contact))
-    app.add_handler(CommandHandler("help", help_command))
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+    # Add handlers
+    application.add_handler(CommandHandler("start", start))
+    application.add_handler(CommandHandler("about", about))
+    application.add_handler(CommandHandler("services", services))
+    application.add_handler(CommandHandler("contact", contact))
+    application.add_handler(CommandHandler("help", help_command))
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+    
+    # Add error handler
+    application.add_error_handler(error_handler)
 
-    await app.run_polling()
+    # Start polling
+    print("✅ TechSynergy AI Bot is now running...")
+    application.run_polling()
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    main()
