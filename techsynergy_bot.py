@@ -8,7 +8,7 @@ from telegram.ext import (
     ContextTypes,
     filters,
 )
-from openai import OpenAI
+from openai import AsyncOpenAI
 from dotenv import load_dotenv
 
 # Load environment variables
@@ -24,7 +24,7 @@ if not OPENAI_API_KEY:
     raise ValueError("❌ OPENAI_API_KEY environment variable is not set!")
 
 # Initialize OpenAI client
-client = OpenAI(api_key=OPENAI_API_KEY)
+client = AsyncOpenAI(api_key=OPENAI_API_KEY)
 
 # === Custom Keyboard Menu ===
 main_menu = ReplyKeyboardMarkup(
@@ -116,7 +116,10 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return await help_command(update, context)
 
     try:
-        response = client.chat.completions.create(
+        # Show typing action
+        await context.bot.send_chat_action(chat_id=update.effective_chat.id, action="typing")
+        
+        response = await client.chat.completions.create(
             model="gpt-3.5-turbo",
             messages=[
                 {"role": "system", "content": "You are TechSynergy AI Assistant, a professional, polite chatbot that represents TechSynergy Solutions Limited - a full-service IT and innovation company providing professional services in web development, mobile apps, cloud solutions, cybersecurity, AI automation, and virtual events. Be helpful, concise, and professional. Always represent the company well."},
@@ -139,10 +142,10 @@ async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     print(f"Update {update} caused error {context.error}")
 
 # === Main Function ===
-def main():
+async def main():
     print("🤖 TechSynergy AI Bot is starting...")
     
-    # Create Application instance (FIXED: Using Application instead of ApplicationBuilder)
+    # Create Application instance
     application = Application.builder().token(BOT_TOKEN).build()
 
     # Add handlers
@@ -158,7 +161,7 @@ def main():
 
     # Start polling
     print("✅ TechSynergy AI Bot is now running...")
-    application.run_polling()
+    await application.run_polling()
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())
