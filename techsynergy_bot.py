@@ -122,7 +122,12 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         response = client.chat.completions.create(
             model="gpt-3.5-turbo",
             messages=[
-                {"role": "system", "content": "You are TechSynergy AI Assistant, a professional, polite chatbot that represents TechSynergy Solutions Limited - a full-service IT and innovation company providing professional services in web development, mobile apps, cloud solutions, cybersecurity, AI automation, and virtual events. Be helpful, concise, and professional. Always represent the company well."},
+                {
+                    "role": "system", 
+                    "content": """You are TechSynergy AI Assistant, a professional chatbot representing TechSynergy Solutions Limited. 
+                    The company provides IT services including web development, mobile apps, cloud solutions, cybersecurity, AI automation, and virtual events.
+                    Be helpful, professional, and concise. Always represent the company well."""
+                },
                 {"role": "user", "content": user_message},
             ],
             max_tokens=500,
