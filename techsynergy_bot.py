@@ -1,5 +1,7 @@
 import os
+import sys
 import asyncio
+import logging
 from telegram import Update, ReplyKeyboardMarkup
 from telegram.ext import (
     Application,
@@ -11,17 +13,39 @@ from telegram.ext import (
 import openai
 from dotenv import load_dotenv
 
+# Configure logging
+logging.basicConfig(
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    level=logging.INFO
+)
+logger = logging.getLogger(__name__)
+
+# Force output to flush immediately
+sys.stdout.reconfigure(line_buffering=True)
+sys.stderr.reconfigure(line_buffering=True)
+
+print("=" * 50, flush=True)
+print("🔧 Starting TechSynergy Bot...", flush=True)
+print("=" * 50, flush=True)
+
 # Load environment variables
 load_dotenv()
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
+print(f"✓ BOT_TOKEN loaded: {'Yes' if BOT_TOKEN else 'No'}", flush=True)
+print(f"✓ OPENAI_API_KEY loaded: {'Yes' if OPENAI_API_KEY else 'No'}", flush=True)
+
 # Validate environment variables
 if not BOT_TOKEN:
+    print("❌ ERROR: BOT_TOKEN environment variable is not set!", flush=True)
     raise ValueError("❌ BOT_TOKEN environment variable is not set!")
 if not OPENAI_API_KEY:
+    print("❌ ERROR: OPENAI_API_KEY environment variable is not set!", flush=True)
     raise ValueError("❌ OPENAI_API_KEY environment variable is not set!")
+
+print("✓ Environment variables validated", flush=True)
 
 # Configure OpenAI
 openai.api_key = OPENAI_API_KEY
