@@ -8,7 +8,7 @@ from telegram.ext import (
     ContextTypes,
     filters,
 )
-from openai import OpenAI
+from openai import AsyncOpenAI
 from dotenv import load_dotenv
 
 # Load environment variables
@@ -23,8 +23,8 @@ if not BOT_TOKEN:
 if not OPENAI_API_KEY:
     raise ValueError("❌ OPENAI_API_KEY environment variable is not set!")
 
-# Initialize OpenAI client
-client = OpenAI(api_key=OPENAI_API_KEY)
+# Initialize OpenAI client (using AsyncOpenAI for better performance)
+client = AsyncOpenAI(api_key=OPENAI_API_KEY)
 
 # === Custom Keyboard Menu ===
 main_menu = ReplyKeyboardMarkup(
@@ -119,7 +119,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # Show typing action
         await context.bot.send_chat_action(chat_id=update.effective_chat.id, action="typing")
         
-        response = client.chat.completions.create(
+        response = await client.chat.completions.create(
             model="gpt-3.5-turbo",
             messages=[
                 {
