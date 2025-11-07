@@ -1,5 +1,7 @@
 import os
 import logging
+import psycopg2
+from datetime import datetime
 from telegram import Update, ReplyKeyboardMarkup
 from telegram.ext import (
     Application,
@@ -7,7 +9,6 @@ from telegram.ext import (
     MessageHandler,
     ContextTypes,
     filters,
-    CallbackContext,
 )
 import openai
 from dotenv import load_dotenv
@@ -23,12 +24,68 @@ load_dotenv()
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+DATABASE_URL = os.getenv("DATABASE_URL")
 
 # Validate environment variables
 if not BOT_TOKEN:
     raise ValueError("❌ BOT_TOKEN environment variable is not set!")
 if not OPENAI_API_KEY:
     raise ValueError("❌ OPENAI_API_KEY environment variable is not set!")
+if not DATABASE_URL:
+    raise ValueError("❌ DATABASE_URL environment variable is not set!")
+
+# Database connection
+def get_db_connection():
+    return psycopg2.connect(DATABASE_URL)
+
+def create_inquiries_table():
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute('''
+            CREATE TABLE IF NOT EXISTS inquiries (
+                id SERIAL PRIMARY KEY,
+                user_id BIGINT,
+                username VARCHAR(255),
+                first_name VARCHAR(255),
+                last_name VARCHAR(255),
+                message TEXT,
+                response TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                status VARCHAR(50) DEFAULT 'new'
+            )
+        ''')
+        conn.commit()
+        cur.close()
+        conn.close()
+        print("✅ Database table created successfully")
+    except Exception as e:
+        print(f"❌ Error creating table: {e}")
+
+def save_inquiry(update: Update, user_message: str, bot_response: str):
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute('''
+            INSERT INTO inquiries (user_id, username, first_name, last_name, message, response)
+            VALUES (%s, %s, %s, %s, %s, %s)
+        ''', (
+            update.effective_user.id,
+            update.effective_user.username,
+            update.effective_user.first_name,
+            update.effective_user.last_name or '',
+            user_message,
+            bot_response
+        ))
+        conn.commit()
+        cur.close()
+        conn.close()
+        print(f"✅ Inquiry saved for user {update.effective_user.first_name}")
+    except Exception as e:
+        print(f"❌ Error saving inquiry: {e}")
+
+# Initialize database on startup
+create_inquiries_table()
 
 # Configure OpenAI
 openai.api_key = OPENAI_API_KEY
@@ -108,7 +165,7 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reply_markup=main_menu
     )
 
-# === AI Chat Handler ===
+# === AI Chat Handler with Database Saving ===
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_message = update.message.text
 
@@ -142,19 +199,62 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             temperature=0.7
         )
 
-        reply = response.choices[0].message.content.strip()
-        await update.message.reply_text(reply, parse_mode="Markdown")
+        bot_response = response.choices[0].message.content.strip()
+        
+        # Save inquiry to database
+        save_inquiry(update, user_message, bot_response)
+        
+        await update.message.reply_text(bot_response, parse_mode="Markdown")
 
     except Exception as e:
         print(f"OpenAI Error: {e}")
         await update.message.reply_text("⚠️ Sorry, I'm having trouble connecting to our AI service. Please try again in a moment.")
+
+# === Admin Command to View Inquiries ===
+async def view_inquiries(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    # Replace with your actual Telegram user ID
+    ADMIN_USER_ID = 6347949152  # ⚠️ CHANGE THIS TO YOUR TELEGRAM USER ID
+    
+    if update.effective_user.id != ADMIN_USER_ID:
+        await update.message.reply_text("❌ Access denied.")
+        return
+    
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute('''
+            SELECT username, first_name, message, created_at, status 
+            FROM inquiries 
+            ORDER BY created_at DESC 
+            LIMIT 10
+        ''')
+        inquiries = cur.fetchall()
+        cur.close()
+        conn.close()
+        
+        if not inquiries:
+            await update.message.reply_text("📭 No inquiries yet.")
+            return
+        
+        response = "📋 Recent Inquiries:\n\n"
+        for inquiry in inquiries:
+            response += f"👤 {inquiry[1]} (@{inquiry[0] or 'N/A'})\n"
+            response += f"💬 {inquiry[2][:100]}...\n"
+            response += f"⏰ {inquiry[3].strftime('%Y-%m-%d %H:%M')}\n"
+            response += f"📊 Status: {inquiry[4]}\n"
+            response += "─" * 30 + "\n"
+        
+        await update.message.reply_text(response)
+        
+    except Exception as e:
+        await update.message.reply_text(f"❌ Error fetching inquiries: {e}")
 
 # === Error Handler ===
 async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Log errors caused by Updates."""
     print(f"Update {update} caused error {context.error}")
 
-# === Main Function - FIXED VERSION ===
+# === Main Function ===
 def main():
     print("🤖 TechSynergy AI Bot is starting...")
     
@@ -167,12 +267,13 @@ def main():
     application.add_handler(CommandHandler("services", services))
     application.add_handler(CommandHandler("contact", contact))
     application.add_handler(CommandHandler("help", help_command))
+    application.add_handler(CommandHandler("inquiries", view_inquiries))  # Admin command
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     
     # Add error handler
     application.add_error_handler(error_handler)
 
-    # Start polling - using the synchronous approach
+    # Start polling
     print("✅ TechSynergy AI Bot is now running...")
     application.run_polling()
 
