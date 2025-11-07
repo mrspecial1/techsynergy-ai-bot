@@ -1,6 +1,6 @@
 import os
 import logging
-import psycopg2
+import psycopg
 from datetime import datetime
 from telegram import Update, ReplyKeyboardMarkup
 from telegram.ext import (
@@ -34,29 +34,28 @@ if not OPENAI_API_KEY:
 if not DATABASE_URL:
     raise ValueError("❌ DATABASE_URL environment variable is not set!")
 
-# Database connection
+# Database connection (using psycopg3)
 def get_db_connection():
-    return psycopg2.connect(DATABASE_URL)
+    return psycopg.connect(DATABASE_URL)
 
 def create_inquiries_table():
     try:
         conn = get_db_connection()
-        cur = conn.cursor()
-        cur.execute('''
-            CREATE TABLE IF NOT EXISTS inquiries (
-                id SERIAL PRIMARY KEY,
-                user_id BIGINT,
-                username VARCHAR(255),
-                first_name VARCHAR(255),
-                last_name VARCHAR(255),
-                message TEXT,
-                response TEXT,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                status VARCHAR(50) DEFAULT 'new'
-            )
-        ''')
+        with conn.cursor() as cur:
+            cur.execute('''
+                CREATE TABLE IF NOT EXISTS inquiries (
+                    id SERIAL PRIMARY KEY,
+                    user_id BIGINT,
+                    username VARCHAR(255),
+                    first_name VARCHAR(255),
+                    last_name VARCHAR(255),
+                    message TEXT,
+                    response TEXT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    status VARCHAR(50) DEFAULT 'new'
+                )
+            ''')
         conn.commit()
-        cur.close()
         conn.close()
         print("✅ Database table created successfully")
     except Exception as e:
@@ -65,20 +64,19 @@ def create_inquiries_table():
 def save_inquiry(update: Update, user_message: str, bot_response: str):
     try:
         conn = get_db_connection()
-        cur = conn.cursor()
-        cur.execute('''
-            INSERT INTO inquiries (user_id, username, first_name, last_name, message, response)
-            VALUES (%s, %s, %s, %s, %s, %s)
-        ''', (
-            update.effective_user.id,
-            update.effective_user.username,
-            update.effective_user.first_name,
-            update.effective_user.last_name or '',
-            user_message,
-            bot_response
-        ))
+        with conn.cursor() as cur:
+            cur.execute('''
+                INSERT INTO inquiries (user_id, username, first_name, last_name, message, response)
+                VALUES (%s, %s, %s, %s, %s, %s)
+            ''', (
+                update.effective_user.id,
+                update.effective_user.username,
+                update.effective_user.first_name,
+                update.effective_user.last_name or '',
+                user_message,
+                bot_response
+            ))
         conn.commit()
-        cur.close()
         conn.close()
         print(f"✅ Inquiry saved for user {update.effective_user.first_name}")
     except Exception as e:
@@ -221,15 +219,14 @@ async def view_inquiries(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     try:
         conn = get_db_connection()
-        cur = conn.cursor()
-        cur.execute('''
-            SELECT username, first_name, message, created_at, status 
-            FROM inquiries 
-            ORDER BY created_at DESC 
-            LIMIT 10
-        ''')
-        inquiries = cur.fetchall()
-        cur.close()
+        with conn.cursor() as cur:
+            cur.execute('''
+                SELECT username, first_name, message, created_at, status 
+                FROM inquiries 
+                ORDER BY created_at DESC 
+                LIMIT 10
+            ''')
+            inquiries = cur.fetchall()
         conn.close()
         
         if not inquiries:
