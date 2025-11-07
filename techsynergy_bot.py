@@ -23,7 +23,7 @@ if not BOT_TOKEN:
 if not OPENAI_API_KEY:
     raise ValueError("❌ OPENAI_API_KEY environment variable is not set!")
 
-# Initialize OpenAI client
+# Initialize OpenAI client (NEW SYNTAX for openai>=1.0.0)
 client = OpenAI(api_key=OPENAI_API_KEY)
 
 # === Custom Keyboard Menu ===
@@ -101,7 +101,7 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reply_markup=main_menu
     )
 
-# === AI Chat Handler with Cost Optimization ===
+# === AI Chat Handler (UPDATED SYNTAX) ===
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_message = update.message.text
 
@@ -115,29 +115,23 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif user_message == "❓ Help":
         return await help_command(update, context)
 
-    # Limit message length to control costs
-    if len(user_message) > 500:
-        await update.message.reply_text("❌ Please keep your messages under 500 characters for better assistance.")
-        return
-
     try:
         # Show typing action
         await context.bot.send_chat_action(chat_id=update.effective_chat.id, action="typing")
         
-        # Use OpenAI client with cost optimization
+        # Use OpenAI client (NEW SYNTAX for openai>=1.0.0)
         response = client.chat.completions.create(
-            model="gpt-3.5-turbo",  # Most cost-effective model
+            model="gpt-3.5-turbo",
             messages=[
                 {
                     "role": "system", 
                     "content": """You are TechSynergy AI Assistant, a professional chatbot representing TechSynergy Solutions Limited. 
                     The company provides IT services including web development, mobile apps, cloud solutions, cybersecurity, AI automation, and virtual events.
-                    Be helpful, professional, and concise. Keep responses under 200 words unless detailed explanation is necessary.
-                    Always represent the company well and maintain a business-appropriate tone."""
+                    Be helpful, professional, and concise. Always represent the company well."""
                 },
                 {"role": "user", "content": user_message},
             ],
-            max_tokens=350,  # Limit tokens to control costs
+            max_tokens=500,
             temperature=0.7
         )
 
@@ -146,25 +140,16 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     except Exception as e:
         print(f"OpenAI Error: {e}")
-        error_message = "⚠️ Sorry, I'm having trouble connecting to our AI service. "
-        error_message += "This might be a temporary issue. Please try again in a moment."
-        await update.message.reply_text(error_message)
+        await update.message.reply_text("⚠️ Sorry, I'm having trouble connecting to our AI service. Please try again in a moment.")
 
 # === Error Handler ===
 async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE):
     """Log errors caused by Updates."""
     print(f"Update {update} caused error {context.error}")
 
-# === Enhanced Main Function ===
+# === Main Function ===
 async def main():
-    print("=" * 50)
-    print("🚀 TechSynergy AI Bot - Production Ready")
-    print("=" * 50)
-    print("✓ Paid Render Subscription: Active")
-    print("✓ OpenAI Credits: $5 Available")
-    print("✓ GPT-3.5-turbo: Optimized for cost")
-    print("✓ Environment Variables: Loaded")
-    print("=" * 50)
+    print("🤖 TechSynergy AI Bot is starting...")
     
     # Create Application instance
     application = Application.builder().token(BOT_TOKEN).build()
@@ -180,15 +165,9 @@ async def main():
     # Add error handler
     application.add_error_handler(error_handler)
 
-    # Start polling with production settings
-    print("✅ TechSynergy AI Bot is now LIVE and ready for business!")
-    print("📍 Monitoring active...")
-    await application.run_polling(
-        allowed_updates=Update.ALL_TYPES,
-        drop_pending_updates=True,
-        timeout=30,
-        pool_timeout=30
-    )
+    # Start polling
+    print("✅ TechSynergy AI Bot is now running...")
+    await application.run_polling(allowed_updates=Update.ALL_TYPES)
 
 if __name__ == "__main__":
     asyncio.run(main())
