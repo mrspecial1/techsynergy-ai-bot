@@ -1,5 +1,5 @@
 import os
-import asyncio
+import logging
 from telegram import Update, ReplyKeyboardMarkup
 from telegram.ext import (
     Application,
@@ -7,9 +7,16 @@ from telegram.ext import (
     MessageHandler,
     ContextTypes,
     filters,
+    CallbackContext,
 )
 import openai
 from dotenv import load_dotenv
+
+# Set up logging
+logging.basicConfig(
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    level=logging.INFO
+)
 
 # Load environment variables
 load_dotenv()
@@ -23,7 +30,7 @@ if not BOT_TOKEN:
 if not OPENAI_API_KEY:
     raise ValueError("❌ OPENAI_API_KEY environment variable is not set!")
 
-# Configure OpenAI (old syntax for openai==0.28.1)
+# Configure OpenAI
 openai.api_key = OPENAI_API_KEY
 
 # === Custom Keyboard Menu ===
@@ -101,7 +108,7 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reply_markup=main_menu
     )
 
-# === AI Chat Handler (OLD SYNTAX for openai==0.28.1) ===
+# === AI Chat Handler ===
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_message = update.message.text
 
@@ -119,7 +126,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # Show typing action
         await context.bot.send_chat_action(chat_id=update.effective_chat.id, action="typing")
         
-        # Use OpenAI client (OLD SYNTAX for openai==0.28.1)
+        # Use OpenAI client
         response = openai.ChatCompletion.create(
             model="gpt-3.5-turbo",
             messages=[
@@ -143,12 +150,12 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("⚠️ Sorry, I'm having trouble connecting to our AI service. Please try again in a moment.")
 
 # === Error Handler ===
-async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE):
+async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Log errors caused by Updates."""
     print(f"Update {update} caused error {context.error}")
 
-# === Main Function ===
-async def main():
+# === Main Function - FIXED VERSION ===
+def main():
     print("🤖 TechSynergy AI Bot is starting...")
     
     # Create Application instance
@@ -165,9 +172,9 @@ async def main():
     # Add error handler
     application.add_error_handler(error_handler)
 
-    # Start polling
+    # Start polling - using the synchronous approach
     print("✅ TechSynergy AI Bot is now running...")
-    await application.run_polling(allowed_updates=Update.ALL_TYPES)
+    application.run_polling()
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    main()
