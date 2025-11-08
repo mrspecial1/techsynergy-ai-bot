@@ -551,7 +551,7 @@ async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     print(f"Update {update} caused error {context.error}")
 
 # === Main Function ===
-async def main():
+def main():
     print("🤖 TechSynergy AI Bot is starting...")
     
     # Create Application instance
@@ -573,7 +573,7 @@ async def main():
 
     # Start polling
     print("✅ TechSynergy AI Bot is now running...")
-    await application.run_polling(allowed_updates=Update.ALL_TYPES)
+    application.run_polling()
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    main()
