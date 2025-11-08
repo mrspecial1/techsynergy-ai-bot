@@ -15,7 +15,7 @@ from telegram.ext import (
     ContextTypes,
     filters,
 )
-from openai import OpenAI
+import openai
 
 # Set up logging
 logging.basicConfig(
@@ -49,8 +49,8 @@ if not DATABASE_URL:
 # Replace with your actual Telegram user ID
 ADMIN_USER_ID = 6347949152  # ⚠️ CHANGE THIS TO YOUR TELEGRAM USER ID
 
-# Initialize OpenAI client
-client = OpenAI(api_key=OPENAI_API_KEY)
+# Configure OpenAI (v0.28.1)
+openai.api_key = OPENAI_API_KEY
 
 # Database connection
 def get_db_connection():
@@ -431,8 +431,8 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         4. Mention that our team will contact them promptly
         5. Keep responses concise but thorough"""
         
-        # Use OpenAI client
-        response = client.chat.completions.create(
+        # Use OpenAI client (v0.28.1 syntax)
+        response = openai.ChatCompletion.create(
             model="gpt-3.5-turbo",
             messages=[
                 {"role": "system", "content": system_prompt},
