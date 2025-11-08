@@ -1,0 +1,36 @@
+services:
+  - type: web
+    name: techsynergy-bot
+    env: python
+    plan: free
+    branch: main
+    buildCommand: pip install -r requirements.txt
+    startCommand: python techsynergy_bot.py
+    envVars:
+      - key: BOT_TOKEN
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: DATABASE_URL
+        fromDatabase:
+          name: techsynergy-database
+          property: connectionString
+
+  - type: cron
+    name: daily-backup
+    env: python
+    plan: free
+    schedule: "0 2 * * *"  # 2 AM daily
+    buildCommand: pip install -r requirements.txt
+    runCommand: python backup.py
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: techsynergy-database
+          property: connectionString
+      - key: AWS_ACCESS_KEY_ID
+        sync: false
+      - key: AWS_SECRET_ACCESS_KEY
+        sync: false
+      - key: AWS_BUCKET_NAME
+        sync: false

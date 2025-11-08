@@ -3,6 +3,7 @@ import logging
 import psycopg
 import smtplib
 import re
+import openai
 from datetime import datetime
 from email.mime.text import MimeText
 from email.mime.multipart import MimeMultipart
@@ -22,6 +23,7 @@ logging.basicConfig(
 )
 
 # Load environment variables
+from dotenv import load_dotenv
 load_dotenv()
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
@@ -73,6 +75,131 @@ def create_inquiries_table():
         print("✅ Database table created successfully")
     except Exception as e:
         print(f"❌ Error creating table: {e}")
+
+# === BACKUP FUNCTIONS ===
+def backup_inquiries():
+    """Backup all inquiries to a CSV file"""
+    try:
+        conn = get_db_connection()
+        with conn.cursor() as cur:
+            cur.execute('''
+                SELECT id, user_id, username, first_name, last_name, 
+                       message, response, created_at, status, contact_info
+                FROM inquiries 
+                ORDER BY created_at DESC
+            ''')
+            inquiries = cur.fetchall()
+        
+        # Create backup directory if it doesn't exist
+        os.makedirs('backups', exist_ok=True)
+        
+        # Generate filename with timestamp
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"backups/inquiries_backup_{timestamp}.csv"
+        
+        with open(filename, 'w', encoding='utf-8') as f:
+            # Write header
+            f.write("ID,User ID,Username,First Name,Last Name,Message,Response,Created At,Status,Contact Info\n")
+            
+            # Write data
+            for inquiry in inquiries:
+                # Escape commas and quotes in text fields
+                escaped_fields = []
+                for field in inquiry:
+                    if field is None:
+                        escaped_fields.append('')
+                    else:
+                        field_str = str(field).replace('"', '""').replace('\n', ' ')
+                        if ',' in field_str or '"' in field_str:
+                            escaped_fields.append(f'"{field_str}"')
+                        else:
+                            escaped_fields.append(field_str)
+                
+                f.write(','.join(escaped_fields) + '\n')
+        
+        conn.close()
+        print(f"✅ Backup created: {filename} with {len(inquiries)} records")
+        return True
+        
+    except Exception as e:
+        print(f"❌ Backup error: {e}")
+        return False
+
+def export_recent_inquiries(days=7):
+    """Export recent inquiries from the last N days"""
+    try:
+        conn = get_db_connection()
+        with conn.cursor() as cur:
+            cur.execute('''
+                SELECT id, user_id, username, first_name, last_name, 
+                       message, response, created_at, status, contact_info
+                FROM inquiries 
+                WHERE created_at >= CURRENT_DATE - INTERVAL '%s days'
+                ORDER BY created_at DESC
+            ''', (days,))
+            inquiries = cur.fetchall()
+        
+        # Create exports directory if it doesn't exist
+        os.makedirs('exports', exist_ok=True)
+        
+        # Generate filename with timestamp
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"exports/recent_inquiries_{days}days_{timestamp}.csv"
+        
+        with open(filename, 'w', encoding='utf-8') as f:
+            # Write header
+            f.write("ID,User ID,Username,First Name,Last Name,Message,Response,Created At,Status,Contact Info\n")
+            
+            # Write data
+            for inquiry in inquiries:
+                # Escape commas and quotes in text fields
+                escaped_fields = []
+                for field in inquiry:
+                    if field is None:
+                        escaped_fields.append('')
+                    else:
+                        field_str = str(field).replace('"', '""').replace('\n', ' ')
+                        if ',' in field_str or '"' in field_str:
+                            escaped_fields.append(f'"{field_str}"')
+                        else:
+                            escaped_fields.append(field_str)
+                
+                f.write(','.join(escaped_fields) + '\n')
+        
+        conn.close()
+        print(f"✅ Export created: {filename} with {len(inquiries)} recent records")
+        return True
+        
+    except Exception as e:
+        print(f"❌ Export error: {e}")
+        return False
+
+# === BACKUP COMMAND ===
+async def backup_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id != ADMIN_USER_ID:
+        await update.message.reply_text("❌ Access denied.")
+        return
+    
+    try:
+        await update.message.reply_text("🔄 Starting database backup...")
+        
+        # Run backups
+        backup_success = backup_inquiries()
+        export_success = export_recent_inquiries(7)
+        
+        if backup_success:
+            message = "✅ Backup completed successfully!\n"
+            message += "• Full database backup created\n"
+            if export_success:
+                message += "• Recent inquiries exported\n"
+            message += "📁 Check Render logs for file details"
+        else:
+            message = "❌ Backup failed. Check logs for details."
+        
+        await update.message.reply_text(message)
+        
+    except Exception as e:
+        await update.message.reply_text(f"❌ Backup error: {e}")
 
 # === INPUT VALIDATION FUNCTIONS ===
 def is_valid_email(email):
@@ -437,6 +564,7 @@ def main():
     application.add_handler(CommandHandler("help", help_command))
     application.add_handler(CommandHandler("inquiries", view_inquiries))
     application.add_handler(CommandHandler("stats", stats))
+    application.add_handler(CommandHandler("backup", backup_command))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     
     # Add error handler
