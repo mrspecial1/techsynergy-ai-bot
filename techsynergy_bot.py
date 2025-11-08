@@ -431,7 +431,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         4. Mention that our team will contact them promptly
         5. Keep responses concise but thorough"""
         
-        # Use OpenAI client (updated for v1.14.0)
+        # Use OpenAI client
         response = client.chat.completions.create(
             model="gpt-3.5-turbo",
             messages=[
