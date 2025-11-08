@@ -5,8 +5,8 @@ import smtplib
 import re
 import openai
 from datetime import datetime
-from email.mime.text import MimeText
-from email.mime.multipart import MimeMultipart
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 from telegram import Update, ReplyKeyboardMarkup
 from telegram.ext import (
     Application,
@@ -251,12 +251,12 @@ def send_inquiry_notification(user_info, user_message, bot_response, contact_det
         ⚡ ACTION REQUIRED: Please follow up with this potential client!
         """
         
-        msg = MimeMultipart()
+        msg = MIMEMultipart()
         msg['Subject'] = subject
         msg['From'] = EMAIL_USER
         msg['To'] = NOTIFY_EMAIL
         
-        text_part = MimeText(body, 'plain')
+        text_part = MIMEText(body, 'plain')
         msg.attach(text_part)
         
         server = smtplib.SMTP(SMTP_SERVER, SMTP_PORT)
