@@ -80,6 +80,40 @@ def create_inquiries_table():
     except Exception as e:
         print(f"❌ Error creating table: {e}")
 
+# === ADD THIS NEW FUNCTION ===
+def update_table_schema():
+    """Update existing table to add missing columns"""
+    try:
+        conn = get_db_connection()
+        with conn.cursor() as cur:
+            # Check if contact_info column exists
+            cur.execute('''
+                SELECT column_name 
+                FROM information_schema.columns 
+                WHERE table_name='inquiries' and column_name='contact_info'
+            ''')
+            if not cur.fetchone():
+                print("🔄 Adding missing 'contact_info' column to inquiries table...")
+                cur.execute('ALTER TABLE inquiries ADD COLUMN contact_info TEXT')
+                conn.commit()
+                print("✅ Successfully added 'contact_info' column")
+            
+            # Check if status column exists
+            cur.execute('''
+                SELECT column_name 
+                FROM information_schema.columns 
+                WHERE table_name='inquiries' and column_name='status'
+            ''')
+            if not cur.fetchone():
+                print("🔄 Adding missing 'status' column to inquiries table...")
+                cur.execute('ALTER TABLE inquiries ADD COLUMN status VARCHAR(50) DEFAULT 'new'')
+                conn.commit()
+                print("✅ Successfully added 'status' column")
+                
+        conn.close()
+    except Exception as e:
+        print(f"❌ Error updating table schema: {e}")
+
 # === BACKUP FUNCTIONS ===
 def backup_inquiries():
     """Backup all inquiries to a CSV file"""
@@ -317,6 +351,7 @@ def save_inquiry(update: Update, user_message: str, bot_response: str):
 
 # Initialize database on startup
 create_inquiries_table()
+update_table_schema()  # ⚠️ ADD THIS LINE to update existing table
 
 # === Custom Keyboard Menu ===
 main_menu = ReplyKeyboardMarkup(
