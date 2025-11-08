@@ -3,7 +3,7 @@ import logging
 import psycopg
 import smtplib
 import re
-import openai
+import asyncio
 from datetime import datetime
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
@@ -15,6 +15,7 @@ from telegram.ext import (
     ContextTypes,
     filters,
 )
+from openai import OpenAI
 
 # Set up logging
 logging.basicConfig(
@@ -47,6 +48,9 @@ if not DATABASE_URL:
 
 # Replace with your actual Telegram user ID
 ADMIN_USER_ID = 6347949152  # ⚠️ CHANGE THIS TO YOUR TELEGRAM USER ID
+
+# Initialize OpenAI client
+client = OpenAI(api_key=OPENAI_API_KEY)
 
 # Database connection
 def get_db_connection():
@@ -314,9 +318,6 @@ def save_inquiry(update: Update, user_message: str, bot_response: str):
 # Initialize database on startup
 create_inquiries_table()
 
-# Configure OpenAI
-openai.api_key = OPENAI_API_KEY
-
 # === Custom Keyboard Menu ===
 main_menu = ReplyKeyboardMarkup(
     [
@@ -430,8 +431,8 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         4. Mention that our team will contact them promptly
         5. Keep responses concise but thorough"""
         
-        # Use OpenAI client
-        response = openai.ChatCompletion.create(
+        # Use OpenAI client (updated for v1.14.0)
+        response = client.chat.completions.create(
             model="gpt-3.5-turbo",
             messages=[
                 {"role": "system", "content": system_prompt},
@@ -550,7 +551,7 @@ async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     print(f"Update {update} caused error {context.error}")
 
 # === Main Function ===
-def main():
+async def main():
     print("🤖 TechSynergy AI Bot is starting...")
     
     # Create Application instance
@@ -572,7 +573,7 @@ def main():
 
     # Start polling
     print("✅ TechSynergy AI Bot is now running...")
-    application.run_polling()
+    await application.run_polling(allowed_updates=Update.ALL_TYPES)
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())
