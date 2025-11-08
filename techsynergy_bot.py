@@ -106,7 +106,7 @@ def update_table_schema():
             ''')
             if not cur.fetchone():
                 print("🔄 Adding missing 'status' column to inquiries table...")
-                cur.execute('ALTER TABLE inquiries ADD COLUMN status VARCHAR(50) DEFAULT 'new'')
+                cur.execute("ALTER TABLE inquiries ADD COLUMN status VARCHAR(50) DEFAULT 'new'")
                 conn.commit()
                 print("✅ Successfully added 'status' column")
                 
